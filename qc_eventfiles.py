@@ -125,9 +125,9 @@ def qc_tsv_file(tsv_path):
         # Check recognition reaction time values
         rt_nan = np.sum(np.isnan(dframe_enc['recognition_responsetime']))
         rt_min = np.sum(dframe_enc['recognition_responsetime'] < 0.5)
-        rt_max = np.sum(dframe_enc['recognition_responsetime'] > 12.0)
+        rt_max = np.sum(dframe_enc['recognition_responsetime'] > 120.0)
         if rt_nan or rt_min or rt_max:
-            qc_summary += 'Invalid or missing recognition reaction times check rt_nan = {}, rt_min = {}, rt_max = {}; '.format(rt_nan, rt_min, rt_max)
+            qc_summary += 'Invalid or missing recognition reaction times; check rt_nan = {}, rt_min = {}, rt_max = {}; '.format(rt_nan, rt_min, rt_max)
         if np.sum(np.isnan(dframe_ctl['recognition_responsetime'])) != dframe_ctl.shape[0]:
             qc_summary += 'Recognition reaction times misattributed to control trials; '
 
@@ -208,9 +208,12 @@ def main():
     for tsv_path in tsv_list:
         sub_id = os.path.basename(tsv_path).split('_')[0].split('-')[1]
         qc_rep = qc_tsv_file(tsv_path)
-        if len(qc_rep) == 0:
-            qc_rep = 'All good'
-        qc_report.write('subject ' + sub_id + ': ' + qc_rep + '\n')
+
+        if len(qc_rep) > 0:
+            qc_report.write('subject ' + sub_id + ': ' + qc_rep + '\n')
+        #if len(qc_rep) == 0:
+        #    qc_rep = 'All good'
+        #qc_report.write('subject ' + sub_id + ': ' + qc_rep + '\n')
 
     qc_report.close()
 
