@@ -9,44 +9,34 @@ import argparse
 import glob
 import logging
 from numpy import nan as NaN
+import numpy as np
 import pandas as pd
 import shutil
 import zipfile
 
 
-def get_arguments():
+def _build_arg_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="",
         epilog="""
         Convert behavioural data from cimaq to bids format
-        Input: Folder with zip files
         """)
 
-    parser.add_argument(
-        "-d", "--idir",
-        required=True, nargs="+",
-        help="Folder to be sorted")
+    parser.add_argument("in_dir",
+                        help="Folder with all zip files.")
 
-    parser.add_argument(
-        "-o", "--odir",
-        required=True, nargs="+",
-        help="Output folder - if doesn\'t exist it will be created.")
+    parser.add_argument("out_dir",
+                        help='Output folder - if doesn\'t exist it'
+                             ' will be created.')
 
-    parser.add_argument(
-        '--log_level', default='DEBUG',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Log level of the logging class.')
-
-    args = parser.parse_args()
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit()
-    else:
-        return args
+    parser.add_argument('--log_level', default='WARNING',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                        help='Log level of the logging class.')
+    return parser
 
 
-def get_all_ids(iFolder):
+def get_all_ids(in_folder):
     """ List all ZipFile and get all IDs
     Parameters:
     ----------
@@ -56,17 +46,17 @@ def get_all_ids(iFolder):
     ----------
     ids: list of tuple (behavioral ID, IRM ID)
     """
-    if not os.path.exists(iFolder):
-        sys.exit('This folder doesn\'t exist: {}'.format(iFolder))
+    if not os.path.exists(in_folder):
+        sys.exit('This folder doesn\'t exist: {}'.format(in_folder))
         return
     ids = []
-    allZipFiles = glob.glob(os.path.join(iFolder, '*.zip'))
-    for currZipFile in allZipFiles:
+    allZipFiles = glob.glob(os.path.join(in_folder, '*.zip'))
+    for currZipFile in np.sort(allZipFiles):
         currZipFile = os.path.basename(currZipFile)
         ids.append((currZipFile.split('_')[0], currZipFile.split('_')[1]))
 
     if not ids:
-        sys.exit('This folder doesn\'t contain any zip files')
+        sys.exit('This folder doesn\'t contain any zip files.')
         return
     else:
         return ids
@@ -86,9 +76,9 @@ def set_subject_data(bID, iFolder, oFolder):
     """
     logging.debug('Subject PSCID": {}'.format(bID))
 
-    #prefix = ['Output-Responses-Encoding_CIMAQ_*',
-    #          'Onset-Event-Encoding_CIMAQ_*',
-    #          'Output_Retrieval_CIMAQ_*']
+    # prefix = ['Output-Responses-Encoding_CIMAQ_*',
+    #           'Onset-Event-Encoding_CIMAQ_*',
+    #           'Output_Retrieval_CIMAQ_*']
 
     prefix = ['Output-Responses-Encoding_*',
               'Onset-Event-Encoding_*',
@@ -115,12 +105,17 @@ def set_subject_data(bID, iFolder, oFolder):
                 if len(file) == 1:
                     sub_files.append(file[0])
                 elif len(file) == 0:
-                    print("No file with prefix {} found".format(nPrefix))
+                    logging.error("No file with prefix {} "
+                                  "found".format(nPrefix))
                 else:
-                    logging.error('Multiple files found'.format(bID))
+                    logging.error('Multiple files found for {} '
+                                  'with prefix {} wih files {}'.format(bID,
+                                                                       nPrefix,
+                                                                       file))
 
         else:
-            logging.error('Multiple folders found'.format(bID))
+            logging.error('Multiple folders found for {} found {}'.format(bID,
+                                                                          s_out))
 
     return sub_files
 
@@ -361,7 +356,6 @@ def extract_taskFile(bID, sID, file_list, output):
     # import data from three text files into pandas DataFrames
     encMain = pd.read_csv(file_list[0], sep='\t')
     manualEdits = ['3303819', '5477234', '6417837', '7674650']
-    print(file_list[1])
     if bID in manualEdits:
         encOnsets = pd.read_csv(file_list[1], sep='\t', header=None)
     else:
@@ -371,7 +365,7 @@ def extract_taskFile(bID, sID, file_list, output):
     retriev = pd.read_csv(file_list[2], sep='\t', encoding='ISO-8859-1')
     # clean up each file
     encMain = cleanMain(encMain)
-    print(encOnsets)
+    #print(encOnsets)
     encOnsets = cleanOnsets(encOnsets)
     retriev = cleanRetriev(retriev)
     # import onset times from encOnset into encMain
@@ -386,10 +380,12 @@ def extract_taskFile(bID, sID, file_list, output):
 
 
 def main():
-    args = get_arguments()
+    parser = _build_arg_parser()
+    args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
-    oFolder = args.odir[0]
-    iFolder = args.idir[0]
+
+    oFolder = args.out_dir
+    iFolder = args.in_dir
 
     # Create oFolder if not exists
     if not os.path.exists(oFolder):
@@ -408,6 +404,7 @@ def main():
 
     # loop over zip files
     for (idBEH, idMRI) in all_ids:
+        print("Running {}-{}".format(idBEH, idMRI))
         s_files = set_subject_data(idBEH, iFolder, tmpFolder)
         if(len(s_files) == 3):
             extract_taskFile(idBEH, idMRI, s_files, fileFolder)
