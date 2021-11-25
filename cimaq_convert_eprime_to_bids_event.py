@@ -355,7 +355,7 @@ def extract_taskFile(bID, sID, file_list, output):
     """
     # import data from three text files into pandas DataFrames
     encMain = pd.read_csv(file_list[0], sep='\t')
-    manualEdits = ['3303819', '5477234', '6417837', '7674650']
+    manualEdits = ['6417837']
     if bID in manualEdits:
         encOnsets = pd.read_csv(file_list[1], sep='\t', header=None)
     else:
@@ -365,7 +365,6 @@ def extract_taskFile(bID, sID, file_list, output):
     retriev = pd.read_csv(file_list[2], sep='\t', encoding='ISO-8859-1')
     # clean up each file
     encMain = cleanMain(encMain)
-    #print(encOnsets)
     encOnsets = cleanOnsets(encOnsets)
     retriev = cleanRetriev(retriev)
     # import onset times from encOnset into encMain
