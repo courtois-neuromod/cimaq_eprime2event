@@ -123,11 +123,11 @@ def qc_tsv_file(tsv_path):
             qc_summary += 'Invalid recognition accuracy entries for CTL trials; '
 
         # Check recognition reaction time values
-        rt_nan = np.sum(np.isnan(dframe_enc['recognition_responsetime'])) > 0
-        rt_min = np.sum(dframe_enc['recognition_responsetime'] < 0.5) > 0
-        rt_max = np.sum(dframe_enc['recognition_responsetime'] > 12.0) > 0
+        rt_nan = np.sum(np.isnan(dframe_enc['recognition_responsetime']))
+        rt_min = np.sum(dframe_enc['recognition_responsetime'] < 0.5)
+        rt_max = np.sum(dframe_enc['recognition_responsetime'] > 12.0)
         if rt_nan or rt_min or rt_max:
-            qc_summary += 'Invalid or missing recognition reaction times; check rt_nan = {}, rt_min = {}, rt_max = {}; '.format(rt_nan, rt_min, rt_max)
+            qc_summary += 'Invalid or missing recognition reaction times check rt_nan = {}, rt_min = {}, rt_max = {}; '.format(rt_nan, rt_min, rt_max)
         if np.sum(np.isnan(dframe_ctl['recognition_responsetime'])) != dframe_ctl.shape[0]:
             qc_summary += 'Recognition reaction times misattributed to control trials; '
 
