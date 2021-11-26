@@ -9,44 +9,34 @@ import argparse
 import glob
 import logging
 from numpy import nan as NaN
+import numpy as np
 import pandas as pd
 import shutil
 import zipfile
 
 
-def get_arguments():
+def _build_arg_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="",
         epilog="""
         Convert behavioural data from cimaq to bids format
-        Input: Folder with zip files
         """)
 
-    parser.add_argument(
-        "-d", "--idir",
-        required=True, nargs="+",
-        help="Folder to be sorted")
+    parser.add_argument("in_dir",
+                        help="Folder with all zip files.")
 
-    parser.add_argument(
-        "-o", "--odir",
-        required=True, nargs="+",
-        help="Output folder - if doesn\'t exist it will be created.")
+    parser.add_argument("out_dir",
+                        help='Output folder - if doesn\'t exist it'
+                             ' will be created.')
 
-    parser.add_argument(
-        '--log_level', default='DEBUG',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Log level of the logging class.')
-
-    args = parser.parse_args()
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit()
-    else:
-        return args
+    parser.add_argument('--log_level', default='WARNING',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                        help='Log level of the logging class.')
+    return parser
 
 
-def get_all_ids(iFolder):
+def get_all_ids(in_folder):
     """ List all ZipFile and get all IDs
     Parameters:
     ----------
@@ -56,17 +46,17 @@ def get_all_ids(iFolder):
     ----------
     ids: list of tuple (behavioral ID, IRM ID)
     """
-    if not os.path.exists(iFolder):
-        sys.exit('This folder doesn\'t exist: {}'.format(iFolder))
+    if not os.path.exists(in_folder):
+        sys.exit('This folder doesn\'t exist: {}'.format(in_folder))
         return
     ids = []
-    allZipFiles = glob.glob(os.path.join(iFolder, '*.zip'))
-    for currZipFile in allZipFiles:
+    allZipFiles = glob.glob(os.path.join(in_folder, '*.zip'))
+    for currZipFile in np.sort(allZipFiles):
         currZipFile = os.path.basename(currZipFile)
         ids.append((currZipFile.split('_')[0], currZipFile.split('_')[1]))
 
     if not ids:
-        sys.exit('This folder doesn\'t contain any zip files')
+        sys.exit('This folder doesn\'t contain any zip files.')
         return
     else:
         return ids
@@ -86,9 +76,9 @@ def set_subject_data(bID, iFolder, oFolder):
     """
     logging.debug('Subject PSCID": {}'.format(bID))
 
-    #prefix = ['Output-Responses-Encoding_CIMAQ_*',
-    #          'Onset-Event-Encoding_CIMAQ_*',
-    #          'Output_Retrieval_CIMAQ_*']
+    # prefix = ['Output-Responses-Encoding_CIMAQ_*',
+    #           'Onset-Event-Encoding_CIMAQ_*',
+    #           'Output_Retrieval_CIMAQ_*']
 
     prefix = ['Output-Responses-Encoding_*',
               'Onset-Event-Encoding_*',
@@ -115,12 +105,18 @@ def set_subject_data(bID, iFolder, oFolder):
                 if len(file) == 1:
                     sub_files.append(file[0])
                 elif len(file) == 0:
-                    print("No file with prefix {} found".format(nPrefix))
+                    logging.error("No file with prefix {} "
+                                  "found".format(nPrefix))
                 else:
-                    logging.error('Multiple files found'.format(bID))
+                    logging.error('Multiple files found for {} '
+                                  'with prefix {} wih files {}'.format(bID,
+                                                                       nPrefix,
+                                                                       file))
 
         else:
-            logging.error('Multiple folders found'.format(bID))
+            logging.error('Multiple folders found '
+                          'for {} found {}'.format(bID,
+                                                   s_out))
 
     return sub_files
 
@@ -135,7 +131,7 @@ def cleanMain(mainFile):
     ----------
     mainFile: pandas object
     """
-    # remove first three junk rows (blank trials): CTL0, Enc00 and ENc000
+    # remove first three rows (blank trials): CTL0, Enc00 and ENc000
     mainFile.drop([0, 1, 2], axis=0, inplace=True)
     # re-label columns
     mainFile.rename(columns={'TrialNumber': 'trial_number',
@@ -172,8 +168,8 @@ def cleanMain(mainFile):
 def cleanOnsets(onsets):
     """
     Description:
-        Label columns and remove first six junk rows
-        (3 junk trials; 2 rows per trial).
+        Label columns and remove first six blank trials
+        (3 blank trials; 2 rows per trial).
 
     Parameters:
     ----------
@@ -192,6 +188,13 @@ def cleanOnsets(onsets):
 
 def cleanRetriev(ret):
     """
+    Description:
+        Clean Retrieval file.
+        Check if responses keys has been changed.
+        Should be 8, 9, 5, 6 but sometimes it could be 1, 2, 3, 4
+        Mapping (Info from Samira)
+        1 -> 8 / 2 -> 9 / 3 -> 5 / 4 -> 6
+
     Parameters:
     ----------
     ret: pandas object
@@ -200,6 +203,14 @@ def cleanRetriev(ret):
     ----------
     ret: pandas object
     """
+
+    val_map = {1: 8,
+               2: 9,
+               3: 5,
+               4: 6}
+    if len(np.intersect1d([1.0, 2.0, 3.0, 4.0], list(ret['Spatial_RESP']))):
+        ret['Spatial_RESP'] = ret['Spatial_RESP'].map(val_map)
+
     # Change column headers
     ret.rename(columns={'category': 'old_new',
                         'Stim': 'stim_file',
@@ -211,24 +222,31 @@ def cleanRetriev(ret):
                         'Spatial_RT': 'position_responsetime',
                         'Spatial_ACC(à corriger voir output-encodage)': 'position_accuracy'},
                inplace=True)
+
     # re-order columns
     cols = ['old_new', 'stim_file', 'stim_id', 'recognition_response',
             'recognition_accuracy', 'recognition_responsetime',
             'position_response', 'position_accuracy', 'position_responsetime']
     ret = ret[cols]
+
     # Transform reaction time columns from ms to s
     ret[['recognition_responsetime']] = ret[['recognition_responsetime']].astype('float64', copy=False)  # string is object in pandas, str in Python
     ret[['position_responsetime']] = ret[['position_responsetime']].astype('float64', copy=False)
     ret['recognition_responsetime'] = ret['recognition_responsetime'].div(1000)
     ret['position_responsetime'] = ret['position_responsetime'].div(1000)
-    # Clean up eprime programming mistake: replace position_response and position_responsetime values
-    # with NaN if subject perceived image as 'new' (the image was not probed for position).
-    # There should be no response or RT value there, values were carried over from previous trial (not reset in eprime)
-    # CONFIRMED w Isabel: subject must give a position answer when probed (image considered OLD) before eprime moves to the next trial.
-    i = ret[ret['recognition_response'] == 2].index
+
+    # Clean up eprime programming mistake: replace position_response and
+    # position_responsetime values with NaN if subject perceived image
+    # as 'new' (the image was not probed for position).
+    # There should be no response or RT value there, values were carried over
+    # from previous trial (not reset in eprime)
+    # CONFIRMED w Isabel: subject must give a position answer
+    # when probed (image considered OLD) before eprime moves to the next trial.
+    i = ret[(ret['recognition_response'] == 2) | (ret['recognition_response'] == 0)].index
     ret.loc[i, 'position_responsetime'] = NaN
     ret.loc[i, 'position_response'] = -1
-    # clean up eprime mistake (change Old67 condition ('old_new') from New to OLD)
+    # clean up eprime mistake (change Old67 condition ('old_new')
+    # from New to OLD)
     q = ret[ret['stim_id'] == 'Old67'].index
     ret.loc[q, 'old_new'] = 'OLD'
     # insert new columns
@@ -239,6 +257,7 @@ def cleanRetriev(ret):
     for j in range(0, 5):
         ret.insert(loc=colIndex[j], column=colNames[j], value=dtype[j],
                    allow_duplicates=True)
+
     # Extract info and fill trial_number, stim_category and stim_name columns
     k = ret.index
     ret.loc[k, 'trial_number'] = k+1
@@ -315,7 +334,8 @@ def addPostScan(main, ret):
         mainEnc.loc[stimID, 'position_response'] = ret.loc[i, 'position_response']
         mainEnc.loc[stimID, 'position_responsetime'] = ret.loc[i, 'position_responsetime']
     # calculate post-scan source (position) accuracy;
-    #  -1 = control task; 0 = missed trial; 1 = wrong source (image recognized but wrong quadrant remembered);
+    #  -1 = control task; 0 = missed trial; 1 = wrong source (image recognized
+    #                                          but wrong quadrant remembered);
     # 2 = image recognized with correct source
     mainEnc['position_accuracy'] = 0
     for j in mainEnc[mainEnc['recognition_accuracy'] == 1].index:
@@ -360,8 +380,7 @@ def extract_taskFile(bID, sID, file_list, output):
     """
     # import data from three text files into pandas DataFrames
     encMain = pd.read_csv(file_list[0], sep='\t')
-    manualEdits = ['3303819', '5477234', '6417837', '7674650']
-    print(file_list[1])
+    manualEdits = ['6417837']
     if bID in manualEdits:
         encOnsets = pd.read_csv(file_list[1], sep='\t', header=None)
     else:
@@ -371,7 +390,6 @@ def extract_taskFile(bID, sID, file_list, output):
     retriev = pd.read_csv(file_list[2], sep='\t', encoding='ISO-8859-1')
     # clean up each file
     encMain = cleanMain(encMain)
-    print(encOnsets)
     encOnsets = cleanOnsets(encOnsets)
     retriev = cleanRetriev(retriev)
     # import onset times from encOnset into encMain
@@ -386,10 +404,12 @@ def extract_taskFile(bID, sID, file_list, output):
 
 
 def main():
-    args = get_arguments()
+    parser = _build_arg_parser()
+    args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
-    oFolder = args.odir[0]
-    iFolder = args.idir[0]
+
+    oFolder = args.out_dir
+    iFolder = args.in_dir
 
     # Create oFolder if not exists
     if not os.path.exists(oFolder):
@@ -408,6 +428,7 @@ def main():
 
     # loop over zip files
     for (idBEH, idMRI) in all_ids:
+        print("Running {}-{}".format(idBEH, idMRI))
         s_files = set_subject_data(idBEH, iFolder, tmpFolder)
         if(len(s_files) == 3):
             extract_taskFile(idBEH, idMRI, s_files, fileFolder)
