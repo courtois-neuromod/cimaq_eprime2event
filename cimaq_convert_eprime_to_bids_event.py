@@ -114,8 +114,9 @@ def set_subject_data(bID, iFolder, oFolder):
                                                                        file))
 
         else:
-            logging.error('Multiple folders found for {} found {}'.format(bID,
-                                                                          s_out))
+            logging.error('Multiple folders found '
+                          'for {} found {}'.format(bID,
+                                                   s_out))
 
     return sub_files
 
@@ -130,7 +131,7 @@ def cleanMain(mainFile):
     ----------
     mainFile: pandas object
     """
-    # remove first three junk rows (blank trials): CTL0, Enc00 and ENc000
+    # remove first three rows (blank trials): CTL0, Enc00 and ENc000
     mainFile.drop([0, 1, 2], axis=0, inplace=True)
     # re-label columns
     mainFile.rename(columns={'TrialNumber': 'trial_number',
@@ -167,8 +168,8 @@ def cleanMain(mainFile):
 def cleanOnsets(onsets):
     """
     Description:
-        Label columns and remove first six junk rows
-        (3 junk trials; 2 rows per trial).
+        Label columns and remove first six blank trials
+        (3 blank trials; 2 rows per trial).
 
     Parameters:
     ----------
@@ -187,6 +188,13 @@ def cleanOnsets(onsets):
 
 def cleanRetriev(ret):
     """
+    Description:
+        Clean Retrieval file.
+        Check if responses keys has been changed.
+        Should be 8, 9, 5, 6 but sometimes it could be 1, 2, 3, 4
+        Mapping (Info from Samira)
+        1 -> 8 / 2 -> 9 / 3 -> 5 / 4 -> 6
+
     Parameters:
     ----------
     ret: pandas object
@@ -195,6 +203,14 @@ def cleanRetriev(ret):
     ----------
     ret: pandas object
     """
+
+    val_map = {1: 8,
+               2: 9,
+               3: 5,
+               4: 6}
+    if len(np.intersect1d([1.0, 2.0, 3.0, 4.0], list(ret['Spatial_RESP']))):
+        ret['Spatial_RESP'] = ret['Spatial_RESP'].map(val_map)
+
     # Change column headers
     ret.rename(columns={'category': 'old_new',
                         'Stim': 'stim_file',
@@ -206,24 +222,31 @@ def cleanRetriev(ret):
                         'Spatial_RT': 'position_responsetime',
                         'Spatial_ACC(à corriger voir output-encodage)': 'position_accuracy'},
                inplace=True)
+
     # re-order columns
     cols = ['old_new', 'stim_file', 'stim_id', 'recognition_response',
             'recognition_accuracy', 'recognition_responsetime',
             'position_response', 'position_accuracy', 'position_responsetime']
     ret = ret[cols]
+
     # Transform reaction time columns from ms to s
     ret[['recognition_responsetime']] = ret[['recognition_responsetime']].astype('float64', copy=False)  # string is object in pandas, str in Python
     ret[['position_responsetime']] = ret[['position_responsetime']].astype('float64', copy=False)
     ret['recognition_responsetime'] = ret['recognition_responsetime'].div(1000)
     ret['position_responsetime'] = ret['position_responsetime'].div(1000)
-    # Clean up eprime programming mistake: replace position_response and position_responsetime values
-    # with NaN if subject perceived image as 'new' (the image was not probed for position).
-    # There should be no response or RT value there, values were carried over from previous trial (not reset in eprime)
-    # CONFIRMED w Isabel: subject must give a position answer when probed (image considered OLD) before eprime moves to the next trial.
-    i = ret[ret['recognition_response'] == 2].index
+
+    # Clean up eprime programming mistake: replace position_response and
+    # position_responsetime values with NaN if subject perceived image
+    # as 'new' (the image was not probed for position).
+    # There should be no response or RT value there, values were carried over
+    # from previous trial (not reset in eprime)
+    # CONFIRMED w Isabel: subject must give a position answer
+    # when probed (image considered OLD) before eprime moves to the next trial.
+    i = ret[(ret['recognition_response'] == 2) | (ret['recognition_response'] == 0)].index
     ret.loc[i, 'position_responsetime'] = NaN
     ret.loc[i, 'position_response'] = -1
-    # clean up eprime mistake (change Old67 condition ('old_new') from New to OLD)
+    # clean up eprime mistake (change Old67 condition ('old_new')
+    # from New to OLD)
     q = ret[ret['stim_id'] == 'Old67'].index
     ret.loc[q, 'old_new'] = 'OLD'
     # insert new columns
@@ -234,6 +257,7 @@ def cleanRetriev(ret):
     for j in range(0, 5):
         ret.insert(loc=colIndex[j], column=colNames[j], value=dtype[j],
                    allow_duplicates=True)
+
     # Extract info and fill trial_number, stim_category and stim_name columns
     k = ret.index
     ret.loc[k, 'trial_number'] = k+1
@@ -310,7 +334,8 @@ def addPostScan(main, ret):
         mainEnc.loc[stimID, 'position_response'] = ret.loc[i, 'position_response']
         mainEnc.loc[stimID, 'position_responsetime'] = ret.loc[i, 'position_responsetime']
     # calculate post-scan source (position) accuracy;
-    #  -1 = control task; 0 = missed trial; 1 = wrong source (image recognized but wrong quadrant remembered);
+    #  -1 = control task; 0 = missed trial; 1 = wrong source (image recognized
+    #                                          but wrong quadrant remembered);
     # 2 = image recognized with correct source
     mainEnc['position_accuracy'] = 0
     for j in mainEnc[mainEnc['recognition_accuracy'] == 1].index:
