@@ -32,3 +32,7 @@ For more information please use --help.
 It uses the tsv files and save a QC report.
 
 For more information please use --help.
+
+# Thank you
+
+Code originaly provided by @MarieStLaurent
