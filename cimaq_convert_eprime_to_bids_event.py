@@ -24,7 +24,8 @@ def _build_arg_parser():
         """)
 
     parser.add_argument("in_dir",
-                        help="Directory with all zip files.")
+                        help="Directory with all zip files. "
+                             "Please split your zip into sessions.")
 
     parser.add_argument("out_dir",
                         help='Output directory - if doesn\'t exist it'
