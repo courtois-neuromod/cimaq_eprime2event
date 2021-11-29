@@ -16,11 +16,10 @@ def _build_arg_parser():
         description="",
         epilog="""
         Perform quality check on event files outputed by
-        cimaq_convert_eprime_to_bids.py
-        """)
+        convert_eprime_to_bids.py""")
 
     parser.add_argument('in_dir',
-                        help="Directory that contains event files (.tsv)")
+                        help="Directory that contains event files (.tsv).")
 
     parser.add_argument('out_dir',
                         help="Output directory - if doesn\'t exist"
@@ -181,7 +180,7 @@ def qc_tsv_file(tsv_path):
 def main():
     '''
     Script performs quality check on event files
-    outputed by cimaq_convert_eprime_to_bids.py script
+    outputed by convert_eprime_to_bids.py script
     and saves QC eport (eventfiles_QCreport.txt) in
     output directory
     '''
