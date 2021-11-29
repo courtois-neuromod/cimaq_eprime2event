@@ -32,7 +32,7 @@ def get_all_tsvs(in_dir):
     '''
     Return sorted list of paths to in-scan event files outputed by
     cimaq_convert_eprime_to_bids_event.py
-    (file format: sub-subid_ses-sesid_task-memory_events.tsv)
+    (file format: sub-subID_ses-sID_task-memory_events.tsv)
     '''
     if not os.path.exists(in_dir):
         sys.exit('This folder doesn\'t exist: {}'.format(in_dir))
