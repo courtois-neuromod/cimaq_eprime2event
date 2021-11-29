@@ -24,10 +24,11 @@ def _build_arg_parser():
         """)
 
     parser.add_argument("in_dir",
-                        help="Folder with all zip files.")
+                        help="Directory with all zip files. "
+                             "Please split your zip into sessions.")
 
     parser.add_argument("out_dir",
-                        help='Output folder - if doesn\'t exist it'
+                        help='Output directory - if doesn\'t exist it'
                              ' will be created.')
 
     parser.add_argument('--log_level', default='WARNING',
@@ -397,7 +398,7 @@ def extract_taskFile(bID, sID, file_list, output):
     # import post-scan performance data from retriev into encMain
     encMain = addPostScan(encMain, retriev)
     # export encMain and retriev into tsv files (output directorty)
-    encMain.to_csv(output+'/sub-'+bID+'_ses-sID_task-memory_events.tsv',
+    encMain.to_csv(output+'/sub-'+bID+'_ses-'+sID+'_task-memory_events.tsv',
                    sep='\t', header=True, index=False)
     retriev.to_csv(output+'/PostScanBehav_pscid'+bID+'_dccid'+sID+'.tsv',
                    sep='\t', header=True, index=False)
